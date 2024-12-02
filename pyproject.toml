@@ -16,6 +16,9 @@ uvicorn = "^0.32.1"
 snowflake-connector-python = "^3.12.3"
 python-dotenv = "^1.0.1"
 boto3 = "^1.35.71"
+selenium = "^4.27.1"
+beautifulsoup4 = "^4.12.3"
+requests = "^2.32.3"
 
 
 [build-system]
