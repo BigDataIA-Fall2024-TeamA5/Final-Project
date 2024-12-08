@@ -12,6 +12,18 @@ streamlit = "^1.40.2"
 pinecone-client = "^5.0.1"
 openai = "^1.55.1"
 apache-airflow = "^2.10.3"
+<<<<<<< Updated upstream
+=======
+uvicorn = "^0.32.1"
+snowflake-connector-python = "^3.12.3"
+python-dotenv = "^1.0.1"
+boto3 = "^1.35.71"
+requests = "^2.32.3"
+beautifulsoup4 = "^4.12.3"
+selenium = "^4.27.1"
+playwright = "^1.49.0"
+ratelimit = "^2.2.1"
+>>>>>>> Stashed changes
 
 
 [build-system]
