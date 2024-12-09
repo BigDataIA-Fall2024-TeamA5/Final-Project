@@ -70,3 +70,7 @@ def scrape_documents(URL):
             download_and_upload_pdf(full_pdf_url, category)
     else:
         print(f"Failed to retrieve the page. Status code: {response.status_code}")
+
+if __name__ == "__main__":
+    print("Starting document processing...")
+    scrape_documents(URL)
