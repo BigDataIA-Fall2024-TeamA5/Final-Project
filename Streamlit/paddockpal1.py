@@ -1,53 +1,47 @@
 import os
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
+import openai
 import streamlit as st
+import requests
+
 
 # Load environment variables
 load_dotenv()
 
-# Pinecone setup
-PINECONE_API_KEY_f1 = os.getenv("PINECONE_API_KEY_f1")
+# OpenAI and Pinecone setup
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENV")
 
 # Validate environment variables
-if not PINECONE_API_KEY_f1:
-    raise ValueError("API key for Pinecone is missing.")
+if not OPENAI_API_KEY or not PINECONE_API_KEY:
+    raise ValueError("API keys for OpenAI or Pinecone are missing.")
 
-# Initialize Pinecone client
-pinecone_client = Pinecone(api_key=PINECONE_API_KEY_f1)
+# Initialize Pinecone and OpenAI
+pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
+openai.api_key = OPENAI_API_KEY
 
-# Check and create indexes if necessary
+# Pinecone index names
 INDEX_NAMES = [
     "sporting-regulations-embeddings",
     "technical-regulations-embeddings",
     "financial-regulations-embeddings",
 ]
 
-for index_name in INDEX_NAMES:
-    if index_name not in pinecone_client.list_indexes().names():
-        pinecone_client.create_index(
-            name=index_name,
-            dimension=384,  # Update this dimension based on the embeddings model used
-            metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
-        )
 
-# Sentence Transformer model
-MODEL_NAME = "all-MiniLM-L6-v2"  # Change the model name if needed
-sentence_transformer_model = SentenceTransformer(MODEL_NAME)
-
-
-def generate_embeddings_transformer(text):
+def generate_embeddings_openai(text):
     """
-    Generate embeddings for the given text using Sentence Transformers.
+    Generate embeddings for the given text using OpenAI's 'text-embedding-ada-002' model.
     """
     try:
-        embeddings = sentence_transformer_model.encode(text)
-        return embeddings.tolist()
+        response = openai.Embedding.create(
+            input=text,
+            model="text-embedding-ada-002"
+        )
+        return response["data"][0]["embedding"]
     except Exception as e:
-        print(f"Error generating embeddings with Sentence Transformers: {e}")
+        print(f"Error generating embeddings with OpenAI: {e}")
         return None
 
 
@@ -56,8 +50,8 @@ def query_pinecone(index_name, query_embedding, keywords, top_k=5):
     Perform a hybrid search combining semantic search and keyword-based filtering.
     """
     try:
-        # Access the specified index
-        index = pinecone_client.index(index_name)  # Correctly access the index
+        index = pinecone_client.Index(index_name)
+        # Semantic search using query embedding
         response = index.query(
             vector=query_embedding,
             top_k=top_k,
@@ -77,13 +71,31 @@ def query_pinecone(index_name, query_embedding, keywords, top_k=5):
     except Exception as e:
         print(f"Error querying index {index_name}: {e}")
         return []
-    
 
 
+def expand_query(query):
+    """
+    Generate alternative phrasings for the query using OpenAI Chat API.
+    """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant specialized in rephrasing queries."},
+                {"role": "user", "content": f"Generate alternative phrasings for the query: '{query}'"}
+            ],
+            max_tokens=100,
+            temperature=0.7
+        )
+        expansions = response["choices"][0]["message"]["content"].split("\n")
+        return [q.strip() for q in expansions if q.strip()]
+    except Exception as e:
+        print(f"Error generating query expansions: {e}")
+        return [query]
 
 def fetch_relevant_documents(query):
-    print("Generating embedding for the query using Sentence Transformers...")
-    query_embedding = generate_embeddings_transformer(query)
+    print("Generating embedding for the query using OpenAI...")
+    query_embedding = generate_embeddings_openai(query)
     if not query_embedding:
         print("Failed to generate query embeddings.")
         return []
@@ -92,7 +104,7 @@ def fetch_relevant_documents(query):
     for index_name in INDEX_NAMES:
         print(f"Searching index: {index_name}...")
         # Pass an empty list for keywords if none are being used
-        results = query_pinecone(index_name, query_embedding, keywords=[], top_k=10)
+        results = query_pinecone(index_name, query_embedding, keywords=[], top_k=10)  
         for match in results:
             print(f"Match: {match['metadata'].get('text', '')[:100]}... (Score: {match.get('score', 0)})")
         all_results.extend(results)
@@ -100,7 +112,6 @@ def fetch_relevant_documents(query):
     # Sort results by score in descending order
     sorted_results = sorted(all_results, key=lambda x: x.get("score", 0), reverse=True)
     return sorted_results[:5]
-
 
 def get_combined_context(matches):
     """
@@ -116,23 +127,41 @@ def get_combined_context(matches):
             contexts.append(text)
     return "\n\n".join(contexts[:3])  # Combine top 3 unique matches
 
-
-def generate_answer_with_sentence_transformers(context, query):
+def generate_answer_with_openai(context, query):
     """
-    Generate an answer based on the given context (using Sentence Transformers).
-    This function is left as a placeholder and can be customized further.
+    Generate an answer for the query using OpenAI GPT-4 (Chat API), based on the given context.
     """
     if not context:
         return "No relevant information found in the database."
 
-    # Placeholder for answer generation (you can integrate other logic or models)
-    return f"Based on the context provided, here is the response for your query:\n\n{context}"
+    messages = [
+        {"role": "system", "content": "You are a knowledgeable assistant with expertise in Formula 1 regulations."},
+        {"role": "user", "content": f"""Based on the following context, answer the question in detail. Provide a comprehensive response, include all relevant points, and elaborate wherever possible.
 
+Context:
+{context}
 
+Question:
+{query}"""}
+    ]
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=messages,
+            max_tokens=5000,  # Increase the token limit
+            temperature=0.7,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"Error generating answer with OpenAI: {e}")
+        return "An error occurred while generating the answer."
+
+"""
 def main():
-    """
+
     Main entry point for the F1 Regulations Assistant.
-    """
+
     print("\n=== F1 Regulations Assistant ===")
     while True:
         query = input("\nEnter your question (type 'exit' to quit): ").strip()
@@ -143,14 +172,14 @@ def main():
         print("\nProcessing query...")
         matches = fetch_relevant_documents(query)
         context = get_combined_context(matches)
-        answer = generate_answer_with_sentence_transformers(context, query)
+        answer = generate_answer_with_openai(context, query)
 
         print("This is the context from the embeddings:")
         print(context)
         print("\nThis is the Answer:")
         print(answer)
         print("\n" + "="*50)
-
+"""
 
 def show_paddockpal():
     st.title("Paddock Pal Bot")
@@ -166,15 +195,6 @@ def show_paddockpal():
             matches = fetch_relevant_documents(query)
             context = get_combined_context(matches)
 
-            st.subheader("Context from Database:")
-            if context:
-                st.text_area("Context:", value=context, height=200, disabled=True)
-            else:
-                st.write("No relevant context found.")
-
             st.subheader("Generated Answer:")
-            answer = generate_answer_with_sentence_transformers(context, query)
+            answer = generate_answer_with_openai(context, query)
             st.write(answer)
-
-if __name__ == "__main__":
-    main()
