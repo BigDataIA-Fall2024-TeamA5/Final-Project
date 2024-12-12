@@ -182,7 +182,6 @@ def main():
         print("\n" + "=" * 50)
 
 def show_paddockpal():
-    st.title("Paddock Pal Bot")
     st.write("Ask questions about Formula 1 regulations and get accurate answers!")
 
     query = st.text_input("Enter your question:", key="user_query")
