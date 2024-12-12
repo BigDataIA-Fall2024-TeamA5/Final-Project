@@ -153,8 +153,6 @@ def main():
 
 
 def show_paddockpal():
-    st.title("Paddock Pal Bot")
-    st.write("Ask questions about Formula 1 regulations and get accurate answers!")
 
     # Input section for user queries
     query = st.text_input("Enter your question:", key="user_query")

@@ -114,11 +114,7 @@ def login_page():
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
             if st.button("Login"):
-                if username and password:
-                    login(username, password)
-                else:
-                    st.error("Username and password cannot be empty.")
-
+                login(username, password)
 
         elif option == "Signup":
             st.subheader("Signup")
@@ -126,47 +122,37 @@ def login_page():
             email = st.text_input("Email", key="signup_email")
             password = st.text_input("Password", type="password", key="signup_password")
             if st.button("Signup"):
-                if username and email and password:
-                    signup(username, email, password)
-                else:
-                    st.error("All fields are required for signup.")
+                signup(username, email, password)
+
 def signup(username, email, password):
-    try:
-        response = requests.post(REGISTER_URL, json={
-            "username": username,
-            "email": email,
-            "password": password
-        })
-        if response.status_code == 200:
-            st.success("Account created successfully! Please login.")
-        else:
-            st.error(f"Signup failed: {response.json().get('detail', 'Unknown error occurred')}")
-    except requests.RequestException as e:
-        st.error(f"Failed to connect to server: {e}")
+    response = requests.post(REGISTER_URL, json={
+        "username": username,
+        "email": email,
+        "password": password
+    })
+    if response.status_code == 200:
+        st.success("Account created successfully! Please login.")
+    else:
+        st.error(f"Signup failed: {response.json().get('detail', 'Unknown error occurred')}")
 
 def login(username, password):
-    try:
-        response = requests.post(LOGIN_URL, json={
-            "username": username,
-            "password": password
-        })
-        if response.status_code == 200:
-            token_data = response.json()
-            st.session_state['access_token'] = token_data['access_token']
-            st.session_state['logged_in'] = True
-            st.success("Logged in successfully!")
-            st.rerun()
-        else:
-            st.error("Invalid username or password. Please try again.")
-    except requests.RequestException as e:
-        st.error(f"Failed to connect to server: {e}")
+    response = requests.post(LOGIN_URL, json={
+        "username": username,
+        "password": password
+    })
+    if response.status_code == 200:
+        token_data = response.json()
+        st.session_state['access_token'] = token_data['access_token']
+        st.session_state['logged_in'] = True
+        st.success("Logged in successfully!")
+        st.rerun()
+    else:
+        st.error("Invalid username or password. Please try again.")
 
 # Main Interface
 if __name__ == "__main__":
     if not st.session_state['logged_in']:
-        st.write("Debug: Not logged in, showing login page.")
         login_page()
     else:
-        st.write("Debug: Logged in, showing landing page.")
         import landing
         landing.run()
