@@ -126,7 +126,7 @@ def load_section_data(bucket, section):
 
 # Show Information on the page
 def show_info():
-    add_custom_styles()
+    #add_custom_styles()
     st.markdown('<div class="main-content">', unsafe_allow_html=True)
     st.title("Formula 1 Encyclopedia")
     

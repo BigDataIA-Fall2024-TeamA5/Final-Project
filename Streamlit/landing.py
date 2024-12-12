@@ -1,6 +1,6 @@
 import streamlit as st
 import Streamlit.informationpage as informationpage
-import Streamlit.paddockpal as paddockpal1
+import Streamlit.paddockpal1 as paddockpal1
 # Define available pages
 PAGES = {
     "informationpage": {
@@ -17,7 +17,6 @@ PAGES = {
 
 def run():
     # Initialize session state to track the current page
-    st.title("PLEASE OPEN")
     if 'current_page' not in st.session_state:
         st.session_state['current_page'] = 'informationpage'
 
