@@ -1,5 +1,8 @@
 import streamlit as st
 
+
+
+st.write("Hello welcome to App")
 # Define available pages
 PAGES = {
     "info": {
@@ -36,3 +39,4 @@ def run():
     elif current_page == "paddockpal":
         import paddockpal
         paddockpal.show_paddockpal()
+
