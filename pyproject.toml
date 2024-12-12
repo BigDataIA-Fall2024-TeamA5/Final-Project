@@ -16,9 +16,15 @@ uvicorn = "^0.32.1"
 snowflake-connector-python = "^3.12.3"
 python-dotenv = "^1.0.1"
 boto3 = "^1.35.71"
-selenium = "^4.27.1"
-beautifulsoup4 = "^4.12.3"
-requests = "^2.32.3"
+tqdm = "^4.67.1"
+langchain = "^0.3.10"
+langchain-core = "^0.3.22"
+langchain-huggingface = "^0.1.2"
+langchain-pinecone = "^0.2.0"
+pydantic = "^2.10.3"
+tavily-python = "^0.5.0"
+langchain-community = "^0.3.10"
+datetime = "^5.5"
 
 
 [build-system]

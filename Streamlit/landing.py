@@ -1,17 +1,15 @@
 import streamlit as st
-
-
-
-st.write("Hello welcome to App")
+import Streamlit.informationpage as informationpage
+import Streamlit.paddockpal as paddockpal1
 # Define available pages
 PAGES = {
-    "info": {
-        "module": "info",
+    "informationpage": {
+        "module": "informationpage",
         "title": "Welcome to Paddock Pal",
         "icon": ":house:",
     },
-    "paddockpal": {
-        "module": "paddockpal",
+    "paddockpal1": {
+        "module": "paddockpal1",
         "title": "Paddock Pal Bot",
         "icon": ":robot:",
     }
@@ -19,8 +17,9 @@ PAGES = {
 
 def run():
     # Initialize session state to track the current page
+    st.title("PLEASE OPEN")
     if 'current_page' not in st.session_state:
-        st.session_state['current_page'] = 'info'
+        st.session_state['current_page'] = 'informationpage'
 
     # Set up a simple sidebar for page navigation
     st.sidebar.title("Navigation")
@@ -33,10 +32,7 @@ def run():
     st.title(PAGES[current_page]["title"])
 
     # Import and show the page's content
-    if current_page == "info":
-        import info
-        info.show_info()
-    elif current_page == "paddockpal":
-        import paddockpal
-        paddockpal.show_paddockpal()
-
+    if current_page == "informationpage":
+        informationpage.show_info()
+    elif current_page == "paddockpal1":
+        paddockpal1.show_paddockpal()

@@ -1,36 +1,35 @@
 import os
 import logging
-import openai
-import boto3
-from pinecone import Pinecone, ServerlessSpec
-from dotenv import load_dotenv
 from typing import List
-from botocore.config import Config
+from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+from pinecone import Pinecone, ServerlessSpec
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document as LCDocument
-from docling.document_converter import DocumentConverter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from botocore.config import Config
+import boto3
+from docling.document_converter import DocumentConverter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load environment variables
 load_dotenv()
-boto_config = Config(retries={'max_attempts': 10, 'mode': 'standard'}, max_pool_connections=50)
-
-# Initialize API keys and clients
-openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Initialize Pinecone
-pinecone_client = Pinecone(api_key=os.getenv('PINECONE_API_KEY'))
+pinecone_client = Pinecone(api_key=os.getenv('PINECONE_API_KEY_f1'))
 
-# Configure S3 client
+# Initialize S3 Client
 s3_client = boto3.client(
     's3',
-    aws_access_key_id_rag=os.getenv('AWS_ACCESS_KEY_ID_RAG'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY_RAG'),
-    config=boto_config
+    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    config=Config(retries={'max_attempts': 10, 'mode': 'standard'}, max_pool_connections=50)
 )
+
+# Initialize Sentence Transformer
+sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Configuration
 AWS_BUCKET_NAME = os.getenv('AWS_BUCKET_NAME')
@@ -45,12 +44,12 @@ INDEX_MAP = {
 }
 
 # Ensure Pinecone indexes exist
-def ensure_index_exists(index_name: str, dimension: int = 1536):
+def ensure_index_exists(index_name: str, dimension: int = 384):
     if index_name not in pinecone_client.list_indexes().names():
         pinecone_client.create_index(
             name=index_name,
             dimension=dimension,
-            metric="euclidean",
+            metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=os.getenv('PINECONE_REGION'))
         )
         logging.info(f"Created Pinecone index: {index_name}")
@@ -81,7 +80,7 @@ def extract_text_from_pdf(file_path: str) -> List[LCDocument]:
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
     return splitter.split_documents(docs)
 
-# Fetch documents from specific folders in S3
+# Fetch documents from S3
 def fetch_documents(folders: List[str], years: List[str]) -> List[dict]:
     documents = []
     for folder in folders:
@@ -102,12 +101,20 @@ def fetch_documents(folders: List[str], years: List[str]) -> List[dict]:
             logging.error(f"Error fetching documents from folder {folder}: {e}")
     return documents
 
-# Generate embeddings using OpenAI
-def generate_embedding(text: str, model: str = "text-embedding-ada-002") -> List[float]:
+# Download file from S3 to local temporary directory
+def download_file_from_s3(s3_key: str, local_file_path: str):
     try:
-        logging.info("Generating embedding for text...")
-        response = openai.Embedding.create(input=text, model=model)
-        embedding = response['data'][0]['embedding']
+        logging.info(f"Downloading {s3_key} from S3 bucket {AWS_BUCKET_NAME}...")
+        s3_client.download_file(AWS_BUCKET_NAME, s3_key, local_file_path)
+        logging.info(f"File downloaded successfully: {local_file_path}")
+    except Exception as e:
+        logging.error(f"Error downloading file from S3: {e}")
+
+# Generate embeddings using Sentence Transformers
+def generate_embedding(text: str) -> List[float]:
+    try:
+        logging.info("Generating embedding for text using Sentence Transformer...")
+        embedding = sentence_model.encode(text).tolist()
         logging.info("Embedding generated successfully.")
         return embedding
     except Exception as e:
@@ -136,7 +143,7 @@ def process_document(document: dict):
             return
 
         local_file_path = f"/tmp/{os.path.basename(s3_key)}"
-        s3_client.download_file(AWS_BUCKET_NAME, s3_key, local_file_path)
+        download_file_from_s3(s3_key, local_file_path)
 
         # Extract text chunks from the document
         chunks = extract_text_from_pdf(local_file_path)
@@ -153,7 +160,6 @@ def process_document(document: dict):
 
             # Add the full text of the chunk to the metadata
             metadata = {
-                "s3_key": s3_key,
                 "chunk": i + 1,
                 "category": category,
                 "text": chunk.page_content
