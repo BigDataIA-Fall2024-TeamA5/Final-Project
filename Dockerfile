@@ -1,10 +1,8 @@
 # Use an official Python base image
 FROM python:3.12-slim
 
-# Set environment variables for Airflow
-ENV AIRFLOW_HOME=/opt/airflow \
-    AIRFLOW__CORE__EXECUTOR=LocalExecutor \
-    AIRFLOW__CORE__LOAD_EXAMPLES=False
+# Set the working directory inside the container
+WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -14,19 +12,20 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Apache Airflow
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Add Poetry to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Copy project files into the container
+COPY . .
+
+# Install dependencies using Poetry
 RUN poetry install --no-dev
 
-# Create the Airflow home directory
-RUN mkdir -p $AIRFLOW_HOME
-WORKDIR $AIRFLOW_HOME
+# Expose ports for FastAPI and Streamlit
+EXPOSE 8000 8501
 
-# Copy Airflow configuration (optional, if you have a custom airflow.cfg)
-# COPY airflow.cfg $AIRFLOW_HOME/
-
-# Expose the port for the Airflow webserver
-EXPOSE 8080
-
-# Set up the entrypoint script
-ENTRYPOINT ["sh", "-c"]
-CMD ["airflow db init && airflow webserver -p 8080"]
+# Run FastAPI and Streamlit
+CMD ["sh", "-c", "uvicorn FastAPI.main:app --host 0.0.0.0 --port 8000 & streamlit run Streamlit/main.py --server.port 8501"]
