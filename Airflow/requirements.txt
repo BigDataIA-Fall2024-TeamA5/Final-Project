@@ -1,0 +1,5 @@
+boto3
+openai
+beautifulsoup4
+requests
+pinecone-client

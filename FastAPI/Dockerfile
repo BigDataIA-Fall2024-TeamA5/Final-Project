@@ -1,37 +1,26 @@
-# Use the slim Python 3.12 image as the base
-FROM python:3.12-slim
-
-# Set the working directory inside the container
+# Stage 1: Build
+FROM python:3.12-slim as builder
 WORKDIR /app
-
-# Install necessary system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    curl \
+RUN apt-get update && apt-get install -y gcc libpq-dev curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip
 RUN pip install --upgrade pip
-
-# Install Poetry
 RUN pip install poetry
-
-# Copy dependency files into the container
 COPY pyproject.toml poetry.lock ./
+RUN poetry install --no-root --no-dev
 
-# Install only main dependencies using Poetry
-RUN poetry install --no-root --only main
-
-# Copy the application code into the container
+# Stage 2: Runtime
+FROM python:3.12-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin/poetry /usr/local/bin/poetry
 COPY . .
-
-# Install uvicorn explicitly as it’s used in CMD
-RUN pip install uvicorn
-
-# Expose the port used by the FastAPI application
+RUN useradd -m appuser
+USER appuser
 EXPOSE 8000
-
-# Run the FastAPI application using uvicorn
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
