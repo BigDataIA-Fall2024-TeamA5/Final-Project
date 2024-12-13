@@ -75,9 +75,9 @@ def generate_embeddings_openai(text):
         return None
 
 # Reflection and iterative improvement
-def reflect_and_improve(query: str, context: str, iterations: int = 3) -> List[dict]:
+def reflect_and_improve(query: str, context: str, iterations: int = 3) -> List[str]:
     """
-    Use Reflection architecture to refine responses iteratively and return all responses and critiques.
+    Use Reflection architecture to refine responses iteratively and return all responses.
 
     Parameters:
         query (str): User's question.
@@ -85,10 +85,10 @@ def reflect_and_improve(query: str, context: str, iterations: int = 3) -> List[d
         iterations (int): Number of reflection iterations.
 
     Returns:
-        List[dict]: A list of responses and their corresponding critiques for each iteration.
+        List[str]: A list of all responses generated during each iteration.
     """
     if not context:
-        return [{"response": "No relevant information found in the database.", "critique": ""}]
+        return ["No relevant information found in the database."]
 
     # Initialize the LLM
     llm = ChatOpenAI(model="gpt-4", temperature=0.7)
@@ -111,17 +111,12 @@ def reflect_and_improve(query: str, context: str, iterations: int = 3) -> List[d
         # Generate response
         response = llm(messages).content
 
-        # Reflect on the response
+        # Save the response
+        llm_responses.append(response)
+
+        # Reflect on the response (not saved anymore)
         critique = reflection_prompt.invoke({"messages": [HumanMessage(content=query), AIMessage(content=response)]})
-
-        # Ensure critique content is extracted as a string
         critique_content = getattr(critique, 'content', str(critique))
-
-        # Save the response and critique
-        llm_responses.append({
-            "response": response,
-            "critique": critique_content
-        })
 
         # Add response and critique to messages for the next iteration
         messages.append(AIMessage(content=response))
@@ -321,29 +316,172 @@ def show_paddockpal():
                 return
 
             # Step 2: Generate an answer with OpenAI based on Pinecone's context
-            st.subheader("Refined Answer from OpenAI (Based on Pinecone Context):")
+            st.subheader("Answer from Paddock Pal:")
             try:
                 openai_answer = generate_answer_with_openai(context, query)
-                st.write(openai_answer)
+                st.markdown(
+                    f"""
+                    <div style="background-color: #F0F8FF; padding: 15px; border-radius: 10px; border: 1px solid #ADD8E6; margin-bottom: 15px;">
+                        <p style="font-size: 16px; color: #333; line-height: 1.5;">{openai_answer}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
             except Exception as e:
                 st.error(f"Error generating OpenAI answer: {e}")
                 return
 
-            # Step 3: Generate an independent answer using LangChain
-            st.subheader("Independent Answer from LangChain:")
+            # Step 3: Generate iterative answers using LangChain's reflection process
+            st.subheader("Iterative Answers from Reflection:")
             try:
                 if LANGCHAIN_TRACING.lower() == "true":
                     tracer = LangChainTracer()
                     tracer.load_session(LANGCHAIN_PROJECT)
 
                     with tracing_enabled(tracer=tracer):
-                        langchain_answer = reflect_and_improve(query, context)
+                        langchain_responses = reflect_and_improve(query, context, iterations=3)
                 else:
-                    langchain_answer = reflect_and_improve(query, context)
+                    langchain_responses = reflect_and_improve(query, context, iterations=3)
 
-                st.write(langchain_answer)
+                # Display each response from LangChain iterations in styled cards
+                for i, response in enumerate(langchain_responses, 1):
+                    st.markdown(
+                        f"""
+                        <div style="border: 2px solid #4CAF50; border-radius: 10px; padding: 15px; margin-bottom: 15px; background-color: #E8F5E9;">
+                            <h4 style="color: #4CAF50; margin-top: 0;">Iteration {i}</h4>
+                            <p style="font-size: 16px; color: #333; line-height: 1.5;">{response}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
             except Exception as e:
-                st.error(f"Error generating LangChain answer: {e}")
+                st.error(f"Error generating LangChain answers: {e}")
+
+
+    # Display F1 News Section
+    display_news_section()
+
+def fetch_f1_news():
+    """Fetch strictly F1-related news articles from NewsAPI."""
+    url = f"https://newsapi.org/v2/everything?q=\"Formula 1\" OR F1&language=en&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            articles = response.json().get("articles", [])
+            # Filter further if necessary to ensure relevance
+            filtered_articles = [
+                article for article in articles
+                if "formula" in article["title"].lower() or "f1" in article["title"].lower()
+            ]
+            return filtered_articles
+        else:
+            st.error(f"Error fetching news: {response.json().get('message')}")
+            return []
+    except Exception as e:
+        st.error(f"Error fetching news: {str(e)}")
+        return []
+
+def display_news_section():
+    """Display a news section with hover effects and dynamic article details."""
+    st.markdown(
+        """
+        <style>
+        .news-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+        }
+        .news-card {
+            flex: 0 1 calc(33.333% - 20px);
+            min-width: 300px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background: white;
+            transition: transform 0.3s ease;
+        }
+        .news-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 15px 15px 0 0;
+        }
+        .news-card:hover {
+            transform: translateY(-5px);
+        }
+        .news-content {
+            padding: 15px;
+        }
+        .news-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .news-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        .read-more {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #E10600;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .read-more:hover {
+            background-color: #B30500;
+        }
+        @media (max-width: 992px) {
+            .news-card {
+                flex: 0 1 calc(50% - 20px);
+            }
+        }
+        @media (max-width: 768px) {
+            .news-card {
+                flex: 0 1 100%;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    articles = fetch_f1_news()
+
+    if articles:
+        st.markdown('<div class="news-container">', unsafe_allow_html=True)
+        for article in articles[:9]:
+            image = article.get("urlToImage", "")
+            title = article.get("title", "No Title")
+            description = article.get("description", "No description available.")
+            url = article.get("url", "#")
+
+            st.markdown(
+                f"""
+                <div class="news-card">
+                    <img src="{image}" alt="{title}">
+                    <div class="news-content">
+                        <div class="news-title">{title}</div>
+                        <div class="news-description">{description}</div>
+                        <a href="{url}" target="_blank" class="read-more">Read More</a>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info("No news articles available at the moment.")
+
+
 
 if __name__ == "__main__":
     show_paddockpal()
