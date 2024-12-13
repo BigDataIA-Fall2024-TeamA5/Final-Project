@@ -42,20 +42,9 @@ def load_history_content(bucket):
         st.error(f"Error loading history data: {str(e)}")
         return None
 
-def add_custom_styles():
-    """Add custom CSS styles to remove the background image."""
-    st.markdown("""
-        <style>
-        [data-testid="stAppViewContainer"] {
-            background: none; /* Clear the background image */
-        }
-        </style>
-    """, unsafe_allow_html=True)
 
 def show_info():
-    """Display the Formula 1 Encyclopedia page."""
-    add_custom_styles()  # Apply the custom styles to remove the background
-
+    """Display the Formula 1 Encyclopedia page with a Load More button."""
     st.title("Formula 1 Encyclopedia")
 
     # History Section
@@ -63,14 +52,33 @@ def show_info():
     history_data = load_history_content("f1wikipedia")
 
     if history_data:
+        # Split the content into paragraphs
+        paragraphs = history_data['content'].split("\n\n")
+        total_paragraphs = len(paragraphs)
+
+        # Initialize session state to track loaded content
+        if "loaded_paragraphs" not in st.session_state:
+            st.session_state.loaded_paragraphs = max(1, int(total_paragraphs * 0.1))  # Start with 10%
+
+        # Display the current loaded content
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.markdown(history_data['content'])
+            for paragraph in paragraphs[:st.session_state.loaded_paragraphs]:
+                st.markdown(paragraph)
+
+            # Show "Load More" button if there is more content to load
+            if st.session_state.loaded_paragraphs < total_paragraphs:
+                if st.button("Load More"):
+                    st.session_state.loaded_paragraphs += max(1, int(total_paragraphs * 0.1))  # Load 10% more
+                    st.rerun()  # Rerun the app to display more content
+
+        # Display images in the second column
         with col2:
             for image in history_data['images']:
                 st.image(image['data'], caption=image['key'].split('/')[-1])
     else:
         st.warning("History data could not be loaded. Please check your S3 configuration or network connection.")
+
 
 if __name__ == "__main__":
     show_info()

@@ -71,22 +71,40 @@ def load_section_data(bucket, section):
         return None
 
 def show_drivers_tracks():
-    """Display Drivers and Tracks information."""
+    """Display Drivers and Tracks information with Load More functionality."""
     # Dropdown to choose between Drivers and Tracks
     category = st.selectbox("Choose a Category", ["Drivers", "Tracks"])
 
     # Load data for the selected category
     bucket = "f1wikipedia"
     data = load_section_data(bucket, category)
+
     if data and 'items' in data:
         selection = st.selectbox(f"Select a {category[:-1]}", data['items'])
         if selection:
+            # Load initial 1% of the content
+            content = data['details'][selection].get('content', 'No content available.')
+            content_paragraphs = content.split("\n\n")
+            total_paragraphs = len(content_paragraphs)
+
+            # Initialize session state for loaded content
+            if f"{selection}_loaded_paragraphs" not in st.session_state:
+                st.session_state[f"{selection}_loaded_paragraphs"] = max(1, int(total_paragraphs * 0.01))
+
+            # Display the currently loaded content
+            image = data['details'][selection].get('image', None)
             with st.container():
-                image = data['details'][selection].get('image', None)
                 if image:
                     st.image(image, caption=f"{selection} Profile", use_container_width=True)
-                content = data['details'][selection].get('content', 'No content available.')
-                st.markdown(f"<div style='text-align: center;'>{content}</div>", unsafe_allow_html=True)
+
+                for paragraph in content_paragraphs[:st.session_state[f"{selection}_loaded_paragraphs"]]:
+                    st.markdown(paragraph)
+
+                # Show "Load More" button if there's more content
+                if st.session_state[f"{selection}_loaded_paragraphs"] < total_paragraphs:
+                    if st.button(f"Load More {selection}"):
+                        st.session_state[f"{selection}_loaded_paragraphs"] += max(1, int(total_paragraphs * 0.01))
+                        st.rerun()
     else:
         st.warning(f"No data found for {category}. Please check your S3 bucket configuration.")
 
