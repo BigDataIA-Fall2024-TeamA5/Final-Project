@@ -1,0 +1,55 @@
+name: Streamlit Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the repository
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    # Step 2: Log in to DockerHub
+    - name: Log in to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # Step 3: Build the Streamlit Docker Image
+    - name: Build Streamlit Docker Image
+      run: |
+        docker build -t streamlit-app:latest ./Streamlit
+
+    # Step 4: Push Docker Image to DockerHub
+    - name: Push Docker Image to DockerHub
+      run: |
+        docker tag streamlit-app:latest ${{ secrets.DOCKER_USERNAME }}/streamlit-app:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/streamlit-app:latest
+
+    # Step 5: SSH into EC2 and Deploy Streamlit
+    - name: SSH into EC2 and Deploy
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ${{ secrets.EC2_USER }}
+        PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      run: |
+        echo "$PRIVATE_KEY" | sed 's/\\n/\n/g' > private_key.pem
+        chmod 600 private_key.pem
+        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << EOF
+          sudo yum update -y
+          sudo yum install docker -y
+          sudo systemctl start docker
+          sudo systemctl enable docker
+          sudo usermod -aG docker $EC2_USER
+          docker pull ${{ secrets.DOCKER_USERNAME }}/streamlit-app:latest
+          docker stop streamlit-container || true
+          docker rm streamlit-container || true
+          docker run -d --name streamlit-container -p 8501:8501 ${{ secrets.DOCKER_USERNAME }}/streamlit-app:latest
+        EOF
+        rm -f private_key.pem

@@ -2739,13 +2739,13 @@ files = [
 
 [[package]]
 name = "narwhals"
-version = "1.17.0"
+version = "1.18.2"
 description = "Extremely lightweight compatibility layer between dataframe libraries"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "narwhals-1.17.0-py3-none-any.whl", hash = "sha256:03772e08a6e70d6a5029b2299fa4d4acc51411cca5119afffd6bbc4c762038f4"},
-    {file = "narwhals-1.17.0.tar.gz", hash = "sha256:a2607fa66f0b6ccf6f54df57ee6bc4967b68095d2968c828894a5f77ed9d3c50"},
+    {file = "narwhals-1.18.2-py3-none-any.whl", hash = "sha256:8f28812178bf67e4cbe46009e71aebbcdef78a52acd3d06a747f17189dba9d4a"},
+    {file = "narwhals-1.18.2.tar.gz", hash = "sha256:7f9c72e6811635c0344193d4ce06c9d9d9fb4af37db4b7d60a76b4c929654f35"},
 ]
 
 [package.extras]
@@ -3955,13 +3955,13 @@ typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
 name = "pydantic-settings"
-version = "2.6.1"
+version = "2.7.0"
 description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pydantic_settings-2.6.1-py3-none-any.whl", hash = "sha256:7fb0637c786a558d3103436278a7c4f1cfd29ba8973238a50c5bb9a55387da87"},
-    {file = "pydantic_settings-2.6.1.tar.gz", hash = "sha256:e0f92546d8a9923cb8941689abf85d6601a8c19a23e97a34b2964a2e3f813ca0"},
+    {file = "pydantic_settings-2.7.0-py3-none-any.whl", hash = "sha256:e00c05d5fa6cbbb227c84bd7487c5c1065084119b750df7c8c1a554aed236eb5"},
+    {file = "pydantic_settings-2.7.0.tar.gz", hash = "sha256:ac4bfd4a36831a48dbf8b2d9325425b549a0a6f18cea118436d728eb4f1c4d66"},
 ]
 
 [package.dependencies]
@@ -6017,4 +6017,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.13"
-content-hash = "3b5dd01bf68b6b9e0dcf75281d349208a97330cafa45b7a6c882f11040779dc5"
+content-hash = "5fdbdf72ebe2fef83a3a16224668bcf37f246eeb48c44b5149b0751ba7ea84bd"

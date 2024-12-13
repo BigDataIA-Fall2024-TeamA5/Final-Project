@@ -1,7 +1,10 @@
 # Use an official Python base image
 FROM python:3.12-slim
 
-# Set the working directory inside the container
+# Use Bash as the default shell
+SHELL ["/bin/bash", "-c"]
+
+# Set the working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -18,14 +21,17 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 # Add Poetry to PATH
 ENV PATH="/root/.local/bin:$PATH"
 
-# Copy project files into the container
+# Copy project files
 COPY . .
 
 # Install dependencies using Poetry
-RUN poetry install --no-dev
+RUN poetry install --no-dev --no-root
 
-# Expose ports for FastAPI and Streamlit
-EXPOSE 8000 8501
+# Verify Streamlit is installed
+RUN poetry run streamlit --version
 
-# Run FastAPI and Streamlit
-CMD ["sh", "-c", "streamlit run Streamlit/main.py --server.port 8501"]
+# Expose the Streamlit port
+EXPOSE 8501
+
+# Run the Streamlit app
+CMD ["poetry", "run", "streamlit", "run", "Streamlit/main.py", "--server.port", "8501"]
