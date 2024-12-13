@@ -10,43 +10,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
+    # Step 1: Checkout the repository
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
+    # Step 2: Log in to DockerHub
     - name: Log in to DockerHub
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Set up Docker Build
+    # Step 3: Build the Docker Image
+    - name: Build Docker Image
       run: |
         docker build -t fastapi-app:latest ./FastAPI
 
+    # Step 4: Push Docker Image to DockerHub
     - name: Push Docker Image to DockerHub
       run: |
         docker tag fastapi-app:latest ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
 
-
-
+    # Step 5: SSH into EC2 Instance and Deploy
     - name: SSH into EC2 and Deploy
       env:
         EC2_HOST: ${{ secrets.EC2_HOST }}
         EC2_USER: ${{ secrets.EC2_USER }}
         PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       run: |
+        # Create and secure the private key file
         echo "$PRIVATE_KEY" | sed 's/\\n/\n/g' > private_key.pem
         chmod 600 private_key.pem
+
+        # SSH into the EC2 instance and perform deployment steps
         ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << EOF
+          # Update and install Docker
           sudo yum update -y
           sudo yum install docker -y
+
+          # Start and enable Docker service
           sudo systemctl start docker
           sudo systemctl enable docker
+
+          # Add EC2 user to the Docker group
           sudo usermod -aG docker $EC2_USER
+
+          # Pull and deploy the Docker image
           docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
           docker stop fastapi-container || true
           docker rm fastapi-container || true
           docker run -d --name fastapi-container -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
         EOF
+
+        # Clean up the private key file
         rm -f private_key.pem
