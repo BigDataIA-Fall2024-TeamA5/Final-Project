@@ -34,4 +34,4 @@ RUN poetry run streamlit --version
 EXPOSE 8501
 
 # Default command to run the Streamlit app
-CMD ["poetry", "run", "streamlit", "run", "Streamlit/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["poetry", "run", "streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
