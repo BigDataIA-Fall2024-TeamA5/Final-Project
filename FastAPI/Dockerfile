@@ -7,8 +7,7 @@ RUN apt-get update && apt-get install -y gcc libpq-dev curl \
 RUN pip install --upgrade pip
 RUN pip install poetry
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-dev
-
+RUN poetry install --no-root --only main
 # Stage 2: Runtime
 FROM python:3.12-slim
 WORKDIR /app
