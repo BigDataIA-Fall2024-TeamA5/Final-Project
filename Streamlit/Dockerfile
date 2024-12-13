@@ -1,10 +1,10 @@
 # Use an official Python base image
 FROM python:3.12-slim
 
-# Use Bash as the default shell
+# Set Bash as the default shell
 SHELL ["/bin/bash", "-c"]
 
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /app
 
 # Install system dependencies
@@ -25,13 +25,13 @@ ENV PATH="/root/.local/bin:$PATH"
 COPY . .
 
 # Install dependencies using Poetry
-RUN poetry install --no-dev --no-root
+RUN poetry install --no-root --only main
 
-# Verify Streamlit is installed
+# Verify that Streamlit is installed
 RUN poetry run streamlit --version
 
 # Expose the Streamlit port
 EXPOSE 8501
 
-# Run the Streamlit app
-CMD ["poetry", "run", "streamlit", "run", "Streamlit/main.py", "--server.port", "8501"]
+# Default command to run the Streamlit app
+CMD ["poetry", "run", "streamlit", "run", "Streamlit/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
