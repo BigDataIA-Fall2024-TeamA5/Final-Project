@@ -4,8 +4,8 @@ name: Streamlit Deployment
 on:
   workflow_run:
     workflows: ["FastAPI Deployment"]
-    types:
-      - completed
+    status:
+      - Success
 
 jobs:
   build-and-deploy:
