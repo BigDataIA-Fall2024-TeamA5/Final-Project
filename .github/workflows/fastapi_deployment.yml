@@ -27,7 +27,7 @@ jobs:
       run: |
         docker tag fastapi-app:latest ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
-        
+
 
     - name: SSH into EC2 and Deploy
       env:
@@ -35,9 +35,12 @@ jobs:
         EC2_USER: ${{ secrets.EC2_USER }}
         PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       run: |
-        ssh -o StrictHostKeyChecking=no -i <(echo "$PRIVATE_KEY") $EC2_USER@$EC2_HOST << EOF
+        echo "$PRIVATE_KEY" > f1.pem
+        chmod 600 f1.pem
+        ssh -o StrictHostKeyChecking=no -i f1.pem $EC2_USER@$EC2_HOST << EOF
           docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
           docker stop fastapi-container || true
           docker rm fastapi-container || true
           docker run -d --name fastapi-container -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
         EOF
+        rm -f f1.pem
