@@ -1,51 +1,46 @@
 steps:
-  # Step 1: Build the Docker image for FastAPI
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/fastapi-image', './FastAPI']
-    id: 'Build FastAPI Docker Image'
-
-  # Step 2: Push the Docker image for FastAPI
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/fastapi-image']
-    id: 'Push FastAPI Docker Image'
-
-  # Step 3: Build the Docker image for Streamlit
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/streamlit-image', './Streamlit']
-    id: 'Build Streamlit Docker Image'
-
-  # Step 4: Push the Docker image for Streamlit
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/streamlit-image']
-    id: 'Push Streamlit Docker Image'
-
-  # Step 5: Apply pipeline and deployment configurations
-  - name: 'google/cloud-sdk:latest'
-    entrypoint: 'sh'
+  # Step 1: Deploy FastAPI to f1-dev
+  - name: 'gcr.io/cloud-builders/kubectl'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=f1-dev'
     args:
-      - -xe
-      - -c
-      - |
-        gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
-        gcloud deploy apply --file deploy/dev.yaml --region=us-central1
-        gcloud deploy apply --file deploy/prod.yaml --region=us-central1
+      - 'apply'
+      - '-f'
+      - './kubernetes/fastapi.yaml'
+    id: 'Deploy FastAPI to f1-dev'
 
-  # Step 6: Create Cloud Deploy releases for FastAPI and Streamlit
-  - name: 'google/cloud-sdk:latest'
-    entrypoint: 'sh'
+  # Step 2: Deploy Streamlit to f1-dev
+  - name: 'gcr.io/cloud-builders/kubectl'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=f1-dev'
     args:
-      - -xe
-      - -c
-      - |
-        gcloud deploy releases create fastapi-release-${SHORT_SHA} \
-          --delivery-pipeline=gke-cicd \
-          --region=us-central1 \
-          --from-k8s-manifest=./kubernetes/fastapi.yaml
+      - 'apply'
+      - '-f'
+      - './kubernetes/streamlit.yaml'
+    id: 'Deploy Streamlit to f1-dev'
 
-        gcloud deploy releases create streamlit-release-${SHORT_SHA} \
-          --delivery-pipeline=gke-cicd \
-          --region=us-central1 \
-          --from-k8s-manifest=./kubernetes/streamlit.yaml
+  # Step 3: Deploy FastAPI to f1-production
+  - name: 'gcr.io/cloud-builders/kubectl'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=f1-production'
+    args:
+      - 'apply'
+      - '-f'
+      - './kubernetes/fastapi.yaml'
+    id: 'Deploy FastAPI to f1-production'
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+  # Step 4: Deploy Streamlit to f1-production
+  - name: 'gcr.io/cloud-builders/kubectl'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=f1-production'
+    args:
+      - 'apply'
+      - '-f'
+      - './kubernetes/streamlit.yaml'
+    id: 'Deploy Streamlit to f1-production'
+
+timeout: '600s'

@@ -2,10 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: streamlit-deployment
-  labels:
-    app: streamlit-app
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: streamlit-app
@@ -15,10 +13,10 @@ spec:
         app: streamlit-app
     spec:
       containers:
-        - name: streamlit-container
-          image: gcr.io/logical-craft-314912/streamlit-image:latest
-          ports:
-            - containerPort: 8501
+      - name: streamlit-container
+        image: gcr.io/logical-craft-314912/streamlit-image:latest
+        ports:
+        - containerPort: 8501
 ---
 apiVersion: v1
 kind: Service
@@ -29,6 +27,6 @@ spec:
     app: streamlit-app
   ports:
     - protocol: TCP
-      port: 8501
+      port: 80
       targetPort: 8501
   type: LoadBalancer
