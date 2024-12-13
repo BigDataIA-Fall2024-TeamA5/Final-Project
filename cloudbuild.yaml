@@ -1,0 +1,51 @@
+steps:
+  # Step 1: Build the Docker image for FastAPI
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/fastapi-image', './FastAPI']
+    id: 'Build FastAPI Docker Image'
+
+  # Step 2: Push the Docker image for FastAPI
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/fastapi-image']
+    id: 'Push FastAPI Docker Image'
+
+  # Step 3: Build the Docker image for Streamlit
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/streamlit-image', './Streamlit']
+    id: 'Build Streamlit Docker Image'
+
+  # Step 4: Push the Docker image for Streamlit
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/logical-craft-314912/gke-repo/streamlit-image']
+    id: 'Push Streamlit Docker Image'
+
+  # Step 5: Apply pipeline and deployment configurations
+  - name: 'google/cloud-sdk:latest'
+    entrypoint: 'sh'
+    args:
+      - -xe
+      - -c
+      - |
+        gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
+        gcloud deploy apply --file deploy/dev.yaml --region=us-central1
+        gcloud deploy apply --file deploy/prod.yaml --region=us-central1
+
+  # Step 6: Create Cloud Deploy releases for FastAPI and Streamlit
+  - name: 'google/cloud-sdk:latest'
+    entrypoint: 'sh'
+    args:
+      - -xe
+      - -c
+      - |
+        gcloud deploy releases create fastapi-release-${SHORT_SHA} \
+          --delivery-pipeline=gke-cicd \
+          --region=us-central1 \
+          --from-k8s-manifest=./kubernetes/fastapi.yaml
+
+        gcloud deploy releases create streamlit-release-${SHORT_SHA} \
+          --delivery-pipeline=gke-cicd \
+          --region=us-central1 \
+          --from-k8s-manifest=./kubernetes/streamlit.yaml
+
+options:
+  logging: CLOUD_LOGGING_ONLY
