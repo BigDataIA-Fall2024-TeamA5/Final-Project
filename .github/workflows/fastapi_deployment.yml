@@ -21,7 +21,7 @@ jobs:
 
     - name: Set up Docker Build
       run: |
-        docker build -t fastapi-app:latest ./fastapi_app
+        docker build -t fastapi-app:latest ./FastAPI
 
     - name: Push Docker Image to DockerHub
       run: |
