@@ -39,6 +39,11 @@ jobs:
         echo "$PRIVATE_KEY" | sed 's/\\n/\n/g' > private_key.pem
         chmod 600 private_key.pem
         ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << EOF
+          sudo yum update -y
+          sudo yum install docker -y
+          sudo systemctl start docker
+          sudo systemctl enable docker
+          sudo usermod -aG docker $EC2_USER
           docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
           docker stop fastapi-container || true
           docker rm fastapi-container || true
