@@ -3,20 +3,22 @@ import openai
 from pinecone import Pinecone, ServerlessSpec
 import streamlit as st
 from dotenv import load_dotenv
+import requests
 
 # Load environment variables
 load_dotenv()
 
-# OpenAI API key setup
+# OpenAI and Pinecone API setup
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENV")
+NEWS_API_KEY = os.getenv("NEWSAPI_API_KEY")  # Add your NewsAPI key to .env
 
 # Validate environment variables
-if not OPENAI_API_KEY or not PINECONE_API_KEY or not PINECONE_ENVIRONMENT:
-    raise ValueError("API keys or environment variables for OpenAI and Pinecone are missing.")
+if not OPENAI_API_KEY or not PINECONE_API_KEY or not PINECONE_ENVIRONMENT or not NEWS_API_KEY:
+    raise ValueError("API keys or environment variables for OpenAI, Pinecone, or NewsAPI are missing.")
 
-# Initialize Pinecone using the new class-based method
+# Initialize Pinecone client
 pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
 
 # Ensure Pinecone indexes exist
@@ -32,10 +34,8 @@ INDEX_HOSTS = {
     "financial-regulations-embeddings": "financial-regulations-embeddings-jl357j9.svc.aped-4627-b74a.pinecone.io",
 }
 
+# Ensure Pinecone indexes exist
 def ensure_index_exists(index_name, dimension=1536, metric="cosine"):
-    """
-    Ensure that the specified Pinecone index exists. If it does not exist, create it.
-    """
     if index_name not in pinecone_client.list_indexes().names():
         pinecone_client.create_index(
             name=index_name,
@@ -47,31 +47,19 @@ def ensure_index_exists(index_name, dimension=1536, metric="cosine"):
     else:
         print(f"Index {index_name} already exists.")
 
-# Ensure all indexes exist
 for index in INDEX_NAMES:
     ensure_index_exists(index)
 
 def get_pinecone_index(index_name):
-    """
-    Retrieve a Pinecone index by name using the correct host.
-    """
-    if not PINECONE_ENVIRONMENT:
-        raise ValueError("PINECONE_ENVIRONMENT is not set. Ensure it is defined in the environment variables.")
-    
     host = INDEX_HOSTS.get(index_name)
     if not host:
         raise ValueError(f"Host for index {index_name} is not defined.")
-    
-    print(f"Connecting to Pinecone index at host: {host}")
     return pinecone_client.Index(index_name, host=host)
 
-# OpenAI API key setup
+# OpenAI setup
 openai.api_key = OPENAI_API_KEY
 
 def generate_embeddings_openai(text):
-    """
-    Generate embeddings for the given text using OpenAI's 'text-embedding-ada-002' model.
-    """
     try:
         response = openai.Embedding.create(
             input=text,
@@ -82,105 +70,127 @@ def generate_embeddings_openai(text):
         print(f"Error generating embeddings with OpenAI: {e}")
         return None
 
-def query_pinecone(index_name, query_embedding, keywords=None, top_k=5):
-    """
-    Perform a hybrid search combining semantic search and keyword-based filtering.
-    """
-    if keywords is None:
-        keywords = []
-
+def fetch_f1_news():
+    """Fetch strictly F1-related news articles from NewsAPI."""
+    url = f"https://newsapi.org/v2/everything?q=\"Formula 1\" OR F1&language=en&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
     try:
-        index = get_pinecone_index(index_name)
-        response = index.query(
-            vector=query_embedding,
-            top_k=top_k,
-            include_metadata=True
-        )
-        matches = response.get("matches", [])
-
-        # Keyword-based filtering
-        keyword_matches = [
-            match for match in matches
-            if any(keyword.lower() in match["metadata"].get("text", "").lower() for keyword in keywords)
-        ]
-
-        # Combine results with priority for keyword matches
-        combined_results = keyword_matches + [m for m in matches if m not in keyword_matches]
-        return combined_results[:top_k]
+        response = requests.get(url)
+        if response.status_code == 200:
+            articles = response.json().get("articles", [])
+            # Filter further if necessary to ensure relevance
+            filtered_articles = [
+                article for article in articles
+                if "formula" in article["title"].lower() or "f1" in article["title"].lower()
+            ]
+            return filtered_articles
+        else:
+            st.error(f"Error fetching news: {response.json().get('message')}")
+            return []
     except Exception as e:
-        print(f"Error querying index {index_name}: {e}")
+        st.error(f"Error fetching news: {str(e)}")
         return []
 
-def fetch_relevant_documents(query):
-    print(f"Processing query: {query}")
-    query_embedding = generate_embeddings_openai(query)
-    if not query_embedding:
-        print("Failed to generate query embeddings.")
-        return []
+def display_news_section():
+    """Display a news section with hover effects and dynamic article details."""
+    st.markdown(
+        """
+        <style>
+        .news-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+        }
+        .news-card {
+            flex: 0 1 calc(33.333% - 20px);
+            min-width: 300px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background: white;
+            transition: transform 0.3s ease;
+        }
+        .news-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 15px 15px 0 0;
+        }
+        .news-card:hover {
+            transform: translateY(-5px);
+        }
+        .news-content {
+            padding: 15px;
+        }
+        .news-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .news-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        .read-more {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #E10600;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .read-more:hover {
+            background-color: #B30500;
+        }
+        @media (max-width: 992px) {
+            .news-card {
+                flex: 0 1 calc(50% - 20px);
+            }
+        }
+        @media (max-width: 768px) {
+            .news-card {
+                flex: 0 1 100%;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    all_results = []
-    for index_name in INDEX_NAMES:
-        print(f"Searching index: {index_name}...")
-        results = query_pinecone(index_name, query_embedding, keywords=[], top_k=10)
-        print(f"Results from {index_name}: {results}")
-        all_results.extend(results)
+    articles = fetch_f1_news()
 
-    sorted_results = sorted(all_results, key=lambda x: x.get("score", 0), reverse=True)
-    return sorted_results[:5]
+    if articles:
+        st.markdown('<div class="news-container">', unsafe_allow_html=True)
+        for article in articles[:9]:
+            image = article.get("urlToImage", "")
+            title = article.get("title", "No Title")
+            description = article.get("description", "No description available.")
+            url = article.get("url", "#")
 
-def get_combined_context(matches):
-    seen_texts = set()
-    contexts = []
-    for match in matches:
-        text = match["metadata"].get("text", "")
-        if text and text not in seen_texts:
-            seen_texts.add(text)
-            contexts.append(text)
-    return "\n\n".join(contexts[:3])
+            st.markdown(
+                f"""
+                <div class="news-card">
+                    <img src="{image}" alt="{title}">
+                    <div class="news-content">
+                        <div class="news-title">{title}</div>
+                        <div class="news-description">{description}</div>
+                        <a href="{url}" target="_blank" class="read-more">Read More</a>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info("No news articles available at the moment.")
 
-def generate_answer_with_openai(context, query):
-    if not context:
-        return "No relevant information found in the database."
-
-    messages = [
-        {"role": "system", "content": "You are a knowledgeable assistant with expertise in Formula 1 regulations."},
-        {"role": "user", "content": f"""Based on the following context, answer the question in detail. Provide a comprehensive response, include all relevant points, and elaborate wherever possible.
-
-Context:
-{context}
-
-Question:
-{query}"""}
-    ]
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=messages,
-            max_tokens=5000,
-            temperature=0.7,
-        )
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        print(f"Error generating answer with OpenAI: {e}")
-        return "An error occurred while generating the answer."
-
-def main():
-    print("\n=== F1 Regulations Assistant ===")
-    while True:
-        query = input("\nEnter your question (type 'exit' to quit): ").strip()
-        if query.lower() == "exit":
-            print("Exiting F1 Regulations Assistant. Goodbye!")
-            break
-
-        print("\nProcessing query...")
-        matches = fetch_relevant_documents(query)
-        context = get_combined_context(matches)
-        answer = generate_answer_with_openai(context, query)
-
-        print(answer)
-        print("\n" + "=" * 50)
-
+# Main function
 def show_paddockpal():
     st.write("Ask questions about Formula 1 regulations and get accurate answers!")
 
@@ -197,5 +207,8 @@ def show_paddockpal():
             answer = generate_answer_with_openai(context, query)
             st.write(answer)
 
+    # Display F1 News Section
+    display_news_section()
+
 if __name__ == "__main__":
-    main()
+    show_paddockpal()
