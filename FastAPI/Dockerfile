@@ -1,25 +1,31 @@
-# Stage 1: Build
-FROM python:3.12-slim as builder
-WORKDIR /app
-RUN apt-get update && apt-get install -y gcc libpq-dev curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-RUN pip install --upgrade pip
-RUN pip install poetry
-COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --only main
-# Stage 2: Runtime
+# Use the slim Python 3.12 image as the base
 FROM python:3.12-slim
+
+# Set the working directory inside the container
 WORKDIR /app
-RUN apt-get update && apt-get install -y curl \
+
+# Install necessary system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin/poetry /usr/local/bin/poetry
+
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Copy project files
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies using Poetry
+RUN poetry install --no-root --only main
+
+# Copy application files
 COPY . .
-RUN useradd -m appuser
-USER appuser
+
+# Expose the application port
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
