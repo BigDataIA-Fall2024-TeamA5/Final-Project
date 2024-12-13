@@ -77,7 +77,7 @@ def add_custom_styles(image_path):
     st.markdown(custom_css, unsafe_allow_html=True)
 
 # Apply custom styles
-add_custom_styles("Images/Paddockpal.png")
+#add_custom_styles("Images/Paddockpal.png")
 
 # Initialize session state variables
 if 'logged_in' not in st.session_state:
