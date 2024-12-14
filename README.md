@@ -18,6 +18,8 @@ Paddock Pal is an intelligent assistant designed to provide detailed and accurat
 - **Pinecone**: For storing and querying vector embeddings.
 - **dotenv**: For managing environment variables securely.
 
+## Architecture Diagram
+
 ## Project Structure
 ```
 Final-Project/
