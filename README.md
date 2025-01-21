@@ -19,7 +19,7 @@ Paddock Pal is an intelligent assistant designed to provide detailed and accurat
 - **dotenv**: For managing environment variables securely.
 
 ## Architecture Diagram
-
+![Architecture Diagram](./architectureF1.jpg)
 ## Project Structure
 ```
 Final-Project/
