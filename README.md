@@ -7,7 +7,7 @@ Paddock Pal is an intelligent assistant designed to provide detailed and accurat
 
 ## Features
 - **Embeddings and Search**: Combines semantic and keyword-based search for precise results.
-- **F1 Knowledge base: Knowledge base for those who are new to formula 1. Data Scrapped from wikipedia and openf1 api.
+- **F1 Knowledge base**: Knowledge base for those who are new to formula 1. Data Scrapped from wikipedia and openf1 api.
 - **Multi-Agentic Architecture**: Handles Reflective architecture for regulation categories: sporting, technical, and financial.
 - **User-Friendly Interface**: Built with Streamlit for a clean and intuitive user experience.
 
